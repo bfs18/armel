@@ -1,0 +1,104 @@
+# ARMel (Mel-spectrogram) Training Configuration
+
+defaults:
+  - _self_
+
+# Dataset Configuration
+dataset:
+  train_dataset_path: ???  # Required: Path to processed training dataset
+  valid_dataset_path: null  # Optional: Path to validation dataset (set to enable validation)
+  sample_rate: 24000
+  max_tokens: 1024
+
+# Model Configuration (Mel)
+model:
+  llm_model_path: ???  # Required: Path to pretrained Qwen LLM
+  patch_size: 8
+  attn_implementation: 'flash_attention_2'  # 'sdpa', 'flash_attention_2', 'eager'
+  
+  # Model architecture options
+  use_skip_connection: true  # Enable skip connection from downsample to upsample
+
+  mel:
+    sample_rate: 24000
+    n_fft: 1024
+    hop_length: 256
+    n_mels: 100
+    padding: 'same'
+
+  # Estimator (RFBackbone) settings
+  estimator:
+    hidden_dim: 512
+    intermediate_dim: 1536  # hidden_dim * 4
+    num_layers: 8
+
+  # ResampleModule settings
+  resample:
+    resample_type: 'conv'  # 'conv' or 'perceiver'
+    hidden_dims: 512
+    downsample_strides: [ 2, 4 ]
+    use_io_norm: false
+    io_convnext_layers: 4
+    dim_scale_per_stage: 1.0
+    perceiver_depth: 6
+    perceiver_heads: 8
+
+  # RFMel configuration
+  rfmel:
+    solver: 'euler'
+    noise_std: 1.0
+    t_scheduler: 'linear'
+    training_cfg_rate: 0.0
+    inference_cfg_rate: 3.0
+    n_timesteps: 10
+    batch_mul: 4
+    num_prefix_patches: 1
+
+# Training Configuration
+training:
+  log_dir: ./logs_mel
+  max_steps: 1000000
+  warmup_steps: 10000
+  batch_size: 4
+  learning_rate: 1e-4
+  weight_decay: 0.01
+  gradient_accumulation_steps: 1
+  max_grad_norm: 1.0
+  save_steps: 1000
+  save_top_k: 5
+  logging_steps: 10
+  num_workers: 4
+  precision: 'bf16-mixed'
+
+  # Resample monitoring
+  monitor_resample: true
+  monitor_every_n_steps: 200
+
+  # Two-optimizer settings
+  two_opt: true
+  diffusion_extra_steps: 4
+
+  # Validation and checkpointing
+  val_check_interval: null
+  check_val_every_n_epoch: 1
+  ckpt_path: null
+
+  # WandB
+  wandb_project: 'armel-training'
+  wandb_run_name: null
+  enable_validation: true
+  seed: 42
+
+  # Inference test settings
+  run_inference_test: true
+  inference_ref_audio: 'fanren08'
+  inference_transcript: 'fanren_short.txt'
+  inference_max_new_tokens: 256
+
+# ARMel token configuration
+arwave:
+  audio_out_token: '<|AUDIO_OUT|>'
+  audio_out_bos_token: '<|audio_out_bos|>'
+  audio_eos_token: '<|audio_eos|>'
+  ignore_index: -100
+  round_to: 8
