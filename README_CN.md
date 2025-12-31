@@ -10,12 +10,20 @@
 
 ## 🌟 为什么选择本项目？
 
-- 🚀 **低资源友好**：单卡 RTX 5090 (32GB)，两天可训练，可生成可懂波形
+- 🚀 **低资源友好**：单卡 RTX 5090 (32GB) 即可处理 8000 小时数据集训练
 - 📦 **最小实现**：代码简洁清晰，易于理解和修改，适合学习和二次开发
-- 🌊 **高效架构**：使用 RFWave 的 ConvNeXt Backbone，训练和推理速度快
 - 🇨🇳 **中文友好**：完整的中文文档和中文数据处理流程
 - 🤗 **开箱即用**：提供预训练模型和处理好的数据集，快速上手
-- 💡 **实用导向**：8000 小时数据集即可达到可懂效果，不追求极致但够用
+- 💡 **实用导向**：两天训练即可达到可懂效果，训练更久质量更好 - practical rather than perfect
+
+## 🎵 生成示例
+
+训练模型生成的音频示例：
+
+<audio controls>
+  <source src="outputs/inference_audio_203019_796b492db63e5ccaad85.wav" type="audio/wav">
+  您的浏览器不支持音频播放。<a href="outputs/inference_audio_203019_796b492db63e5ccaad85.wav">下载音频</a>
+</audio>
 
 ## 📦 安装依赖
 
@@ -201,12 +209,6 @@ python3 scripts/mel_inference.py \
 - `output/generated.wav`: 生成的音频
 - `output/generated.png`: Mel 频谱图
 - `output/generated.npy`: Mel 频谱数组
-
-### 🎵 生成示例
-
-训练模型生成的音频示例：
-
-[🔊 点击播放示例音频](outputs/inference_audio_203019_796b492db63e5ccaad85.wav)
 
 ### 🎧 参考音频说明
 
