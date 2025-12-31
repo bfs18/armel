@@ -45,7 +45,7 @@ def _get_rfmel_config_defaults():
     return defaults
 
 
-def export_mel_checkpoint(ckpt_path: str, output_path: str):
+def export_mel_checkpoint(ckpt_path: str, output_path: str, llm_model_path: str = None):
     ckpt_path = Path(ckpt_path)
     output_path = Path(output_path)
 
@@ -114,9 +114,17 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
     # Ensure patch_size in rfmel matches top-level model.patch_size
     model_config['rfmel']['patch_size'] = model_config.get('patch_size', model_config['rfmel']['patch_size'])
 
+    # Determine LLM model path (allow override via parameter)
+    if llm_model_path is not None:
+        llm_path = llm_model_path
+        logger.info(f"Using LLM model path from parameter: {llm_path}")
+    else:
+        llm_path = cfg.model.llm_model_path
+        logger.info(f"Using LLM model path from checkpoint config: {llm_path}")
+
     # Export LLM config (instead of llm_model_path)
-    logger.info(f"Loading LLM config from: {cfg.model.llm_model_path}")
-    llm_config = Qwen3ForCausalLM.config_class.from_pretrained(cfg.model.llm_model_path)
+    logger.info(f"Loading LLM config from: {llm_path}")
+    llm_config = Qwen3ForCausalLM.config_class.from_pretrained(llm_path)
     llm_config_dict = llm_config.to_dict()
     # Override attention implementation from training config
     llm_config_dict['attn_implementation'] = model_config.get('attn_implementation', 'sdpa')
@@ -132,8 +140,8 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
         del model_config['llm_model_path']
 
     # Copy tokenizer files
-    logger.info(f"Copying tokenizer files from: {cfg.model.llm_model_path}")
-    tokenizer_source = Path(cfg.model.llm_model_path)
+    logger.info(f"Copying tokenizer files from: {llm_path}")
+    tokenizer_source = Path(llm_path)
     if tokenizer_source.exists():
         tokenizer_dir.mkdir(parents=True, exist_ok=True)
         # Copy essential tokenizer files
@@ -212,10 +220,12 @@ def main():
     parser = argparse.ArgumentParser(description="Export ARMel model weights and config from Lightning checkpoint")
     parser.add_argument('--ckpt_path', type=str, required=True, help='Path to .ckpt file or directory with checkpoints')
     parser.add_argument('--output_path', type=str, required=True, help='Output .ckpt file or directory to save export')
+    parser.add_argument('--llm_model_path', type=str, default=None,
+                        help='Override LLM model path (default: use path from checkpoint config)')
     args = parser.parse_args()
 
     try:
-        export_mel_checkpoint(args.ckpt_path, args.output_path)
+        export_mel_checkpoint(args.ckpt_path, args.output_path, args.llm_model_path)
     except Exception as e:
         logger.error(f"Export failed: {e}", exc_info=True)
         sys.exit(1)
