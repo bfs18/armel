@@ -87,8 +87,14 @@ def load_armel_for_inference(
     model_state_dict = checkpoint['model_state_dict']
 
     # Tokenizer and LLM
+    # For inference, we only need the tokenizer and model config from llm_model_path
+    # The actual LLM weights will be loaded from the checkpoint
     tokenizer = get_qwen_tokenizer(cfg.model.llm_model_path)
-    llm = Qwen3LM(pretrain_path=cfg.model.llm_model_path, attn_implementation=cfg.model.attn_implementation)
+    llm = Qwen3LM(
+        pretrain_path=cfg.model.llm_model_path,
+        load_weights=False,  # Don't load pretrained weights, will load from checkpoint
+        attn_implementation=cfg.model.attn_implementation
+    )
     llm.resize_token_embeddings(len(tokenizer))
 
     # Mel processor
@@ -147,17 +153,18 @@ def load_armel_for_inference(
     )
 
     # ARMel config
+    armel_cfg = cfg.armel
     armel_config = ARMelConfig(
-        audio_out_token=cfg.arwave.audio_out_token,
-        audio_out_bos_token=cfg.arwave.audio_out_bos_token,
-        audio_eos_token=cfg.arwave.audio_eos_token,
-        audio_out_token_id=tokenizer.convert_tokens_to_ids(cfg.arwave.audio_out_token),
-        audio_out_bos_token_id=tokenizer.convert_tokens_to_ids(cfg.arwave.audio_out_bos_token),
-        audio_eos_token_id=tokenizer.convert_tokens_to_ids(cfg.arwave.audio_eos_token),
-        ignore_index=cfg.arwave.ignore_index,
-        round_to=cfg.arwave.round_to,
-        max_tokens=cfg.arwave.max_tokens,
-        sample_rate=cfg.arwave.sample_rate,
+        audio_out_token=armel_cfg.audio_out_token,
+        audio_out_bos_token=armel_cfg.audio_out_bos_token,
+        audio_eos_token=armel_cfg.audio_eos_token,
+        audio_out_token_id=tokenizer.convert_tokens_to_ids(armel_cfg.audio_out_token),
+        audio_out_bos_token_id=tokenizer.convert_tokens_to_ids(armel_cfg.audio_out_bos_token),
+        audio_eos_token_id=tokenizer.convert_tokens_to_ids(armel_cfg.audio_eos_token),
+        ignore_index=armel_cfg.ignore_index,
+        round_to=armel_cfg.round_to,
+        max_tokens=armel_cfg.max_tokens,
+        sample_rate=armel_cfg.sample_rate,
         patch_size=cfg.model.patch_size,
         use_skip_connection=bool(cfg.model.get('use_skip_connection', False))
     )

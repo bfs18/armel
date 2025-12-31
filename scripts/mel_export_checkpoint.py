@@ -87,10 +87,10 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
         raise ValueError("Config not found in checkpoint under hyper_parameters['cfg']")
     cfg = hyper_parameters['cfg']
 
-    # Build arwave (token/audio) config with dataset merged values
-    arwave_config = OmegaConf.to_container(cfg.arwave, resolve=True)
-    arwave_config['sample_rate'] = cfg.dataset.sample_rate
-    arwave_config['max_tokens'] = cfg.dataset.max_tokens
+    # Build armel (token/audio) config with dataset merged values
+    armel_config = OmegaConf.to_container(cfg.arwave, resolve=True)
+    armel_config['sample_rate'] = cfg.dataset.sample_rate
+    armel_config['max_tokens'] = cfg.dataset.max_tokens
 
     # Model config
     model_config = OmegaConf.to_container(cfg.model, resolve=True)
@@ -110,7 +110,7 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
     # Compose final inference config
     inference_config = {
         'model': model_config,
-        'arwave': arwave_config,
+        'armel': armel_config,
     }
 
     # Extract model state dict

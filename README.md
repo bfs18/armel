@@ -1,55 +1,55 @@
 # Poorman's AR-DiT TTS 📢
 
-> **关键词**: ARDiT, AR-DiT, Autoregressive Diffusion Transformer, TTS, Text-to-Speech, Mel-Spectrogram
+> **Keywords**: ARDiT, AR-DiT, Autoregressive Diffusion Transformer, TTS, Text-to-Speech, Mel-Spectrogram
 
-受 AR-DiT (ARDiT) 启发的**低资源友好**语音合成系统，采用自回归 Transformer（Qwen3 LLM）+ 扩散模型的架构，通过扩散过程生成 Mel 频谱，再经 Vocoder 转换为音频。
+A **resource-friendly** Text-to-Speech system inspired by AR-DiT (ARDiT), combining an autoregressive Transformer (Qwen3 LLM) with a diffusion model architecture. It generates Mel spectrograms through a diffusion process, then converts them to audio via a Vocoder.
 
-**✨ 最小实现的 AR-DiT TTS 训练推理 Pipeline**，可在单张 RTX 5090 (32GB) 上使用 8000 小时数据集，一天内训练出可懂的语音合成结果。
+**✨ Minimal AR-DiT TTS training and inference pipeline** that can train on an 8000-hour dataset using a single RTX 5090 (32GB) and produce intelligible speech synthesis results within two days.
 
-> **PS**: Diffusion backbone 使用的是 [RFWave](https://github.com/bfs18/rfwave) 的 ConvNeXt 架构，而非 DiT。
+> **PS**: The diffusion backbone uses [RFWave](https://github.com/bfs18/rfwave)'s ConvNeXt architecture, not DiT.
 
-## 🌟 为什么选择本项目？
+## 🌟 Why Choose This Project?
 
-- 🚀 **低资源友好**：单卡 RTX 5090 (32GB)，一天训练出可用模型，无需昂贵的多卡集群
-- 📦 **最小实现**：代码简洁清晰，易于理解和修改，适合学习和二次开发
-- 🌊 **高效架构**：使用 RFWave 的 ConvNeXt Backbone，训练和推理速度快
-- 🇨🇳 **中文友好**：完整的中文文档和中文数据处理流程
-- 🤗 **开箱即用**：提供预训练模型和处理好的数据集，快速上手
-- 💡 **实用导向**：8000 小时数据集即可达到可懂效果，不追求极致但够用
+- 🚀 **Resource-Friendly**: Single RTX 5090 (32GB), two-day training, generates intelligible waveforms
+- 📦 **Minimal Implementation**: Clean and concise code, easy to understand and modify, suitable for learning and development
+- 🌊 **Efficient Architecture**: Uses RFWave's ConvNeXt backbone for fast training and inference
+- 🇨🇳 **Chinese-Friendly**: Complete Chinese documentation and Chinese data processing pipeline
+- 🤗 **Ready to Use**: Provides pre-trained models and processed datasets for quick start
+- 💡 **Practical-Oriented**: Achieves intelligible results with 8000-hour dataset, practical rather than perfect
 
-## 📦 安装
+## 📦 Installation
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 🤗 Hugging Face 资源
+### 🤗 Hugging Face Resources
 
-我们在 Hugging Face 上提供了预训练模型和训练数据集：
+We provide pre-trained models and training datasets on Hugging Face:
 
-- **预训练模型**: [laupeng1989/armel-checkpoint](https://huggingface.co/laupeng1989/armel-checkpoint) (即将上传)
-- **训练数据集**: [laupeng1989/armel-dataset](https://huggingface.co/datasets/laupeng1989/armel-dataset)
+- **Pre-trained Model**: [laupeng1989/armel-checkpoint](https://huggingface.co/laupeng1989/armel-checkpoint)
+- **Training Dataset**: [laupeng1989/armel-dataset](https://huggingface.co/datasets/laupeng1989/armel-dataset)
 
-下载资源：
+Download resources:
 ```bash
-# 下载训练数据集
+# Download training dataset
 huggingface-cli download laupeng1989/armel-dataset --repo-type dataset --local-dir ./data/armel-dataset
 
-# 下载预训练模型（即将上传）
-# huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
+# Download pre-trained model
+huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
 ```
 
-**💡 提示**：如果使用 Hugging Face 上的数据集，可以跳过下面的"数据准备"环节，直接进入训练步骤。
+**💡 Tip**: If using the Hugging Face dataset, you can skip the "Data Preparation" section below and proceed directly to training.
 
-## 📊 数据准备
+## 📊 Data Preparation
 
-### 1️⃣ 准备原始数据
+### 1️⃣ Prepare Raw Data
 
-本项目使用 [Amphion Emilia 预处理器](https://github.com/open-mmlab/Amphion/tree/main/preprocessors/Emilia) 处理原始音频数据。
+This project uses the [Amphion Emilia preprocessor](https://github.com/open-mmlab/Amphion/tree/main/preprocessors/Emilia) to process raw audio data.
 
-处理后的数据格式如下：
+Processed data format:
 ```
 example_data/
 ├── 仙逆 第87集 身世苏醒（下） [638031163].json
@@ -59,7 +59,7 @@ example_data/
 └── ...
 ```
 
-JSON 文件格式（包含分段信息和文本）：
+JSON file format (contains segmentation info and text):
 ```json
 [
   {
@@ -79,9 +79,9 @@ JSON 文件格式（包含分段信息和文本）：
 ]
 ```
 
-### 2️⃣ 构建训练数据集
+### 2️⃣ Build Training Dataset
 
-使用 `build_dataset.py` 将原始数据转换为训练格式：
+Use `build_dataset.py` to convert raw data to training format:
 
 ```bash
 python scripts/build_dataset.py \
@@ -92,33 +92,33 @@ python scripts/build_dataset.py \
   --random_seed 42
 ```
 
-**参数说明**：
-- `--data_dir`: 原始数据目录（包含 Emilia 预处理后的 .json 和 .m4a 文件）
-- `--output_dir`: 输出目录，会自动创建 `train/` 和 `test/` 子目录
-- `--num_proc`: 并行处理进程数
-- `--test_samples`: 测试集样本数量
-- `--random_seed`: 随机种子
+**Parameters**:
+- `--data_dir`: Raw data directory (containing Emilia preprocessed .json and .m4a files)
+- `--output_dir`: Output directory, will automatically create `train/` and `test/` subdirectories
+- `--num_proc`: Number of parallel processes
+- `--test_samples`: Number of test samples
+- `--random_seed`: Random seed
 
-## 🔥 训练
+## 🔥 Training
 
-### 💻 训练硬件
+### 💻 Training Hardware
 
-本项目在 **NVIDIA RTX 5090 (32GB)** 上训练。
+This project was trained on **NVIDIA RTX 5090 (32GB)**.
 
-### ⚡ 训练命令
+### ⚡ Training Command
 
-**准备 Qwen3 模型**：
+**Prepare Qwen3 Model**:
 
-`model.llm_model_path` 可以是：
-- **本地路径**：如 `./Qwen3-0.6B`（需提前下载）
-- **Hugging Face 模型名**：如 `Qwen/Qwen3-0.6B`（会自动下载，但首次训练会较慢）
+`model.llm_model_path` can be:
+- **Local path**: e.g., `./Qwen3-0.6B` (requires prior download)
+- **Hugging Face model name**: e.g., `Qwen/Qwen3-0.6B` (auto-downloads, but first training will be slower)
 
-推荐提前下载到本地：
+Recommended to download locally first:
 ```bash
 huggingface-cli download Qwen/Qwen3-0.6B --local-dir ./Qwen3-0.6B
 ```
 
-**训练命令**：
+**Training Command**:
 
 ```bash
 python3 scripts/mel_train.py \
@@ -139,10 +139,10 @@ python3 scripts/mel_train.py \
   model.estimator.num_layers=8
 ```
 
-### 🚄 多卡训练
+### 🚄 Multi-GPU Training
 
 ```bash
-# 使用 2 张 GPU
+# Using 2 GPUs
 CUDA_VISIBLE_DEVICES=0,1 python3 scripts/mel_train.py \
   dataset.train_dataset_path=<your_train_data_path> \
   dataset.valid_dataset_path=<your_valid_data_path> \
@@ -161,13 +161,13 @@ CUDA_VISIBLE_DEVICES=0,1 python3 scripts/mel_train.py \
   model.estimator.num_layers=8
 ```
 
-**注意**：
-- Lightning 会自动检测并使用所有可用 GPU，使用 DDP 策略
-- 根据您的硬件配置，可能需要调整 `batch_size`、`batch_mul`、`max_tokens` 等参数
+**Note**:
+- Lightning automatically detects and uses all available GPUs with DDP strategy
+- You may need to adjust `batch_size`, `batch_mul`, `max_tokens` based on your hardware configuration
 
-## 📤 导出模型
+## 📤 Export Model
 
-训练完成后，导出模型用于推理：
+After training, export the model for inference:
 
 ```bash
 python scripts/mel_export_checkpoint.py \
@@ -175,18 +175,18 @@ python scripts/mel_export_checkpoint.py \
   --output_path ./exported_model/
 ```
 
-或者直接指定 checkpoints 目录（自动选择最新的）：
+Or specify the checkpoints directory directly (automatically selects the latest):
 ```bash
 python scripts/mel_export_checkpoint.py \
   --ckpt_path <your_checkpoint_dir>/ \
   --output_path ./exported_model/
 ```
 
-导出后会生成：
-- `model.ckpt`: 模型权重
-- `model.yaml`: 推理配置
+This will generate:
+- `model.ckpt`: Model weights
+- `model.yaml`: Inference configuration
 
-## 🎤 推理
+## 🎤 Inference
 
 ```bash
 python3 scripts/mel_inference.py \
@@ -197,65 +197,71 @@ python3 scripts/mel_inference.py \
   --dtype bfloat16
 ```
 
-**输出文件**：
-- `output/generated.wav`: 生成的音频
-- `output/generated.png`: Mel 频谱图
-- `output/generated.npy`: Mel 频谱数组
+**Output Files**:
+- `output/generated.wav`: Generated audio
+- `output/generated.png`: Mel spectrogram visualization
+- `output/generated.npy`: Mel spectrogram array
 
-### 🎧 参考音频说明
+### 🎵 Generation Examples
 
-`--ref_audio` 参数指定参考音频的名称（不含扩展名），脚本会从 `example_data/voice_prompts/` 目录读取对应的 `.wav` 和 `.txt` 文件：
+Audio samples generated by the trained model:
+
+[🔊 Click to play sample audio](outputs/inference_audio_203019_796b492db63e5ccaad85.wav)
+
+### 🎧 Reference Audio Instructions
+
+The `--ref_audio` parameter specifies the reference audio name (without extension). The script will read the corresponding `.wav` and `.txt` files from the `example_data/voice_prompts/` directory:
 
 ```
 example_data/voice_prompts/
-├── fanren08.wav          # 参考音频
-├── fanren08.txt          # 参考音频对应的文本
+├── fanren08.wav          # Reference audio
+├── fanren08.txt          # Text corresponding to reference audio
 ├── fanren09.wav
 └── fanren09.txt
 ```
 
-可以添加自己的参考音频，只需将音频文件和对应的文本文件放入该目录即可。
+You can add your own reference audio by placing the audio file and corresponding text file in this directory.
 
-### ⚙️ 参数说明
+### ⚙️ Parameter Description
 
-- `--model_path`: 导出的模型目录或 .ckpt 文件路径
-- `--text`: 要合成的文本，或文本文件路径
-- `--ref_audio`: 参考音频名称（不含扩展名），可用逗号分隔多个
-- `--output_path`: 输出文件路径前缀（会生成 .wav, .png, .npy 三个文件）
-- `--dtype`: 数据类型（float32/float16/bfloat16，默认 bfloat16）
-- `--device`: 设备（cuda/cpu/mps，默认 cuda）
-- `--temperature`: 采样温度（默认 0.7）
-- `--top_p`: Top-p 采样（默认 0.7）
-- `--max_new_tokens`: 最大生成 token 数（默认 1024）
-- `--chunk_method`: 文本分块方法（speaker/word/none，默认 speaker）
-- `--seed`: 随机种子（默认 42）
+- `--model_path`: Exported model directory or .ckpt file path
+- `--text`: Text to synthesize, or text file path
+- `--ref_audio`: Reference audio name (without extension), can specify multiple separated by commas
+- `--output_path`: Output file path prefix (generates .wav, .png, .npy files)
+- `--dtype`: Data type (float32/float16/bfloat16, default bfloat16)
+- `--device`: Device (cuda/cpu/mps, default cuda)
+- `--temperature`: Sampling temperature (default 0.7)
+- `--top_p`: Top-p sampling (default 0.7)
+- `--max_new_tokens`: Maximum number of tokens to generate (default 1024)
+- `--chunk_method`: Text chunking method (speaker/word/none, default speaker)
+- `--seed`: Random seed (default 42)
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 ar-dit-mel/
-├── ar/                      # 自回归模型
-│   ├── armel.py            # ARMel 主模型
+├── ar/                      # Autoregressive model
+│   ├── armel.py            # ARMel main model
 │   ├── qwen.py             # Qwen3 LLM
-│   └── mel_generate.py     # Mel 生成
-├── rfwave/                  # 扩散模型
-│   ├── mel_model.py        # RFMel 模型
-│   ├── mel_processor.py    # Mel 处理器
-│   └── estimator.py        # 扩散 Estimator
-├── dataset/                 # 数据集
-├── scripts/                 # 训练和推理脚本
-│   ├── build_dataset.py    # 构建数据集
-│   ├── mel_train.py        # 训练脚本
-│   ├── mel_export_checkpoint.py  # 导出模型
-│   └── mel_inference.py    # 推理脚本
-└── configs/                 # 配置文件
+│   └── mel_generate.py     # Mel generation
+├── rfwave/                  # Diffusion model
+│   ├── mel_model.py        # RFMel model
+│   ├── mel_processor.py    # Mel processor
+│   └── estimator.py        # Diffusion estimator
+├── dataset/                 # Dataset
+├── scripts/                 # Training and inference scripts
+│   ├── build_dataset.py    # Build dataset
+│   ├── mel_train.py        # Training script
+│   ├── mel_export_checkpoint.py  # Export model
+│   └── mel_inference.py    # Inference script
+└── configs/                 # Configuration files
 ```
 
-## 📜 许可证
+## 📜 License
 
 MIT License
 
-## 📚 相关论文
+## 📚 Related Papers
 
 - **Autoregressive Diffusion Transformer for Text-to-Speech Synthesis**
   Zhijun Liu, et al.
@@ -269,12 +275,12 @@ MIT License
   Yixuan Zhou, et al.
   [arXiv:2509.24650](https://arxiv.org/abs/2509.24650)
 
-## 🙏 致谢
+## 🙏 Acknowledgments
 
-本项目基于以下开源项目：
-- [Qwen3](https://github.com/QwenLM/Qwen) - 语言模型 🤖
-- [Amphion](https://github.com/open-mmlab/Amphion) - 数据预处理 🎵
+This project is based on the following open-source projects:
+- [Qwen3](https://github.com/QwenLM/Qwen) - Language Model 🤖
+- [Amphion](https://github.com/open-mmlab/Amphion) - Data Preprocessing 🎵
 - [Vocos](https://github.com/gemelo-ai/vocos) - Vocoder 🔊
 - [RFWave](https://github.com/bfs18/rfwave) - Diffusion Backbone 🌊
-- [VoxCPM](https://github.com/OpenBMB/VoxCPM) - 架构参考 💡
-
+- [VoxCPM](https://github.com/OpenBMB/VoxCPM) - Architecture Reference 💡
+- [Higgs-Audio](https://github.com/boson-ai/higgs-audio) - Data Template 📋
