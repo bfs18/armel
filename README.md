@@ -33,27 +33,66 @@ pip install -r requirements.txt
 
 ## 🚀 Quick Start
 
-### 🤗 Hugging Face Resources
+### 🎤 Inference with Pre-trained Model
 
-We provide pre-trained models and training datasets on Hugging Face:
+We provide pre-trained models on Hugging Face that you can use directly:
 
-- **Pre-trained Model**: [laupeng1989/armel-checkpoint](https://huggingface.co/laupeng1989/armel-checkpoint)
+**Download Pre-trained Model**:
+```bash
+huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
+```
+
+**Run Inference**:
+```bash
+python3 scripts/mel_inference.py \
+  --model_path ./models/armel-checkpoint/ \
+  --text example_data/transcript/fanren_short.txt \
+  --ref_audio fanren08 \
+  --output_path output/generated \
+  --dtype bfloat16
+```
+
+**Output Files**:
+- `output/generated.wav`: Generated audio
+- `output/generated.png`: Mel spectrogram visualization
+- `output/generated.npy`: Mel spectrogram array
+
+#### 🎧 Reference Audio Instructions
+
+The `--ref_audio` parameter specifies the reference audio name (without extension). The script will read the corresponding `.wav` and `.txt` files from the `example_data/voice_prompts/` directory:
+
+```
+example_data/voice_prompts/
+├── fanren08.wav          # Reference audio
+├── fanren08.txt          # Text corresponding to reference audio
+├── fanren09.wav
+└── fanren09.txt
+```
+
+You can add your own reference audio by placing the audio file and corresponding text file in this directory.
+
+---
+
+## 🔥 Training from Scratch
+
+If you want to train your own model from scratch, follow these steps.
+
+### 🤗 Training Dataset
+
+We provide a processed training dataset on Hugging Face:
+
 - **Training Dataset**: [laupeng1989/armel-dataset](https://huggingface.co/datasets/laupeng1989/armel-dataset)
 
-Download resources:
+**Download Dataset**:
 ```bash
-# Download training dataset
 huggingface-cli download laupeng1989/armel-dataset --repo-type dataset --local-dir ./data/armel-dataset
-
-# Download pre-trained model
-huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
 ```
 
 **💡 Tip**: If using the Hugging Face dataset, you can skip the "Data Preparation" section below and proceed directly to training.
 
-## 📊 Data Preparation
+### 📊 Data Preparation
 
-### 1️⃣ Prepare Raw Data
+#### 1️⃣ Prepare Raw Data
 
 This project uses the [Amphion Emilia preprocessor](https://github.com/open-mmlab/Amphion/tree/main/preprocessors/Emilia) to process raw audio data.
 
@@ -87,7 +126,7 @@ JSON file format (contains segmentation info and text):
 ]
 ```
 
-### 2️⃣ Build Training Dataset
+#### 2️⃣ Build Training Dataset
 
 Use `build_dataset.py` to convert raw data to training format:
 
@@ -100,20 +139,13 @@ python scripts/build_dataset.py \
   --random_seed 42
 ```
 
-**Parameters**:
-- `--data_dir`: Raw data directory (containing Emilia preprocessed .json and .m4a files)
-- `--output_dir`: Output directory, will automatically create `train/` and `test/` subdirectories
-- `--num_proc`: Number of parallel processes
-- `--test_samples`: Number of test samples
-- `--random_seed`: Random seed
+### 🔥 Training
 
-## 🔥 Training
-
-### 💻 Training Hardware
+#### 💻 Training Hardware
 
 This project was trained on **NVIDIA RTX 5090 (32GB)**.
 
-### ⚡ Training Command
+#### ⚡ Training Command
 
 **Prepare Qwen3 Model**:
 
@@ -147,33 +179,9 @@ python3 scripts/mel_train.py \
   model.estimator.num_layers=8
 ```
 
-### 🚄 Multi-GPU Training
+**Note**: Lightning automatically detects and uses all available GPUs with DDP strategy. You may need to adjust `batch_size`, `batch_mul`, `max_tokens` based on your hardware configuration.
 
-```bash
-# Using 2 GPUs
-CUDA_VISIBLE_DEVICES=0,1 python3 scripts/mel_train.py \
-  dataset.train_dataset_path=<your_train_data_path> \
-  dataset.valid_dataset_path=<your_valid_data_path> \
-  model.llm_model_path=Qwen3-0.6B \
-  model.rfmel.batch_mul=2 \
-  training.batch_size=8 \
-  dataset.max_tokens=1024 \
-  training.num_workers=16 \
-  training.learning_rate=0.0001 \
-  training.log_dir=<your_log_dir> \
-  training.diffusion_extra_steps=4 \
-  training.check_val_every_n_epoch=1 \
-  model.use_skip_connection=true \
-  model.estimator.hidden_dim=512 \
-  model.estimator.intermediate_dim=1536 \
-  model.estimator.num_layers=8
-```
-
-**Note**:
-- Lightning automatically detects and uses all available GPUs with DDP strategy
-- You may need to adjust `batch_size`, `batch_mul`, `max_tokens` based on your hardware configuration
-
-## 📤 Export Model
+### 📤 Export Model
 
 After training, export the model for inference:
 
@@ -194,49 +202,9 @@ This will generate:
 - `model.ckpt`: Model weights
 - `model.yaml`: Inference configuration
 
-## 🎤 Inference
+After exporting, you can use the inference commands from the "Inference with Pre-trained Model" section above.
 
-```bash
-python3 scripts/mel_inference.py \
-  --model_path <your_model_dir>/ \
-  --text example_data/transcript/fanren_short.txt \
-  --ref_audio fanren08 \
-  --output_path output/generated \
-  --dtype bfloat16
-```
-
-**Output Files**:
-- `output/generated.wav`: Generated audio
-- `output/generated.png`: Mel spectrogram visualization
-- `output/generated.npy`: Mel spectrogram array
-
-### 🎧 Reference Audio Instructions
-
-The `--ref_audio` parameter specifies the reference audio name (without extension). The script will read the corresponding `.wav` and `.txt` files from the `example_data/voice_prompts/` directory:
-
-```
-example_data/voice_prompts/
-├── fanren08.wav          # Reference audio
-├── fanren08.txt          # Text corresponding to reference audio
-├── fanren09.wav
-└── fanren09.txt
-```
-
-You can add your own reference audio by placing the audio file and corresponding text file in this directory.
-
-### ⚙️ Parameter Description
-
-- `--model_path`: Exported model directory or .ckpt file path
-- `--text`: Text to synthesize, or text file path
-- `--ref_audio`: Reference audio name (without extension), can specify multiple separated by commas
-- `--output_path`: Output file path prefix (generates .wav, .png, .npy files)
-- `--dtype`: Data type (float32/float16/bfloat16, default bfloat16)
-- `--device`: Device (cuda/cpu/mps, default cuda)
-- `--temperature`: Sampling temperature (default 0.7)
-- `--top_p`: Top-p sampling (default 0.7)
-- `--max_new_tokens`: Maximum number of tokens to generate (default 1024)
-- `--chunk_method`: Text chunking method (speaker/word/none, default speaker)
-- `--seed`: Random seed (default 42)
+---
 
 ## 📁 Project Structure
 

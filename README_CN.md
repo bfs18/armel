@@ -33,27 +33,66 @@ pip install -r requirements.txt
 
 ## 🚀 快速开始
 
-### 🤗 Hugging Face 资源
+### 🎤 使用预训练模型推理
 
-我们在 Hugging Face 上提供了预训练模型和训练数据集：
+我们在 Hugging Face 上提供了预训练模型，可以直接下载使用：
 
-- **预训练模型**: [laupeng1989/armel-checkpoint](https://huggingface.co/laupeng1989/armel-checkpoint)
+**下载预训练模型**：
+```bash
+huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
+```
+
+**运行推理**：
+```bash
+python3 scripts/mel_inference.py \
+  --model_path ./models/armel-checkpoint/ \
+  --text example_data/transcript/fanren_short.txt \
+  --ref_audio fanren08 \
+  --output_path output/generated \
+  --dtype bfloat16
+```
+
+**输出文件**：
+- `output/generated.wav`: 生成的音频
+- `output/generated.png`: Mel 频谱图
+- `output/generated.npy`: Mel 频谱数组
+
+#### 🎧 参考音频说明
+
+`--ref_audio` 参数指定参考音频的名称（不含扩展名），脚本会从 `example_data/voice_prompts/` 目录读取对应的 `.wav` 和 `.txt` 文件：
+
+```
+example_data/voice_prompts/
+├── fanren08.wav          # 参考音频
+├── fanren08.txt          # 参考音频对应的文本
+├── fanren09.wav
+└── fanren09.txt
+```
+
+可以添加自己的参考音频，只需将音频文件和对应的文本文件放入该目录即可。
+
+---
+
+## 🔥 从零开始训练
+
+如果您想从零开始训练自己的模型，请按照以下步骤操作。
+
+### 🤗 训练数据集
+
+我们在 Hugging Face 上提供了处理好的训练数据集：
+
 - **训练数据集**: [laupeng1989/armel-dataset](https://huggingface.co/datasets/laupeng1989/armel-dataset)
 
-下载资源：
+**下载数据集**：
 ```bash
-# 下载训练数据集
 huggingface-cli download laupeng1989/armel-dataset --repo-type dataset --local-dir ./data/armel-dataset
-
-# 下载预训练模型
-huggingface-cli download laupeng1989/armel-checkpoint --local-dir ./models/armel-checkpoint
 ```
 
 **💡 提示**：如果使用 Hugging Face 上的数据集，可以跳过下面的"数据准备"环节，直接进入训练步骤。
 
-## 📊 数据准备
+### 📊 数据准备
 
-### 1️⃣ 准备原始数据
+#### 1️⃣ 准备原始数据
 
 本项目使用 [Amphion Emilia 预处理器](https://github.com/open-mmlab/Amphion/tree/main/preprocessors/Emilia) 处理原始音频数据。
 
@@ -87,7 +126,7 @@ JSON 文件格式（包含分段信息和文本）：
 ]
 ```
 
-### 2️⃣ 构建训练数据集
+#### 2️⃣ 构建训练数据集
 
 使用 `build_dataset.py` 将原始数据转换为训练格式：
 
@@ -100,20 +139,13 @@ python scripts/build_dataset.py \
   --random_seed 42
 ```
 
-**参数说明**：
-- `--data_dir`: 原始数据目录（包含 Emilia 预处理后的 .json 和 .m4a 文件）
-- `--output_dir`: 输出目录，会自动创建 `train/` 和 `test/` 子目录
-- `--num_proc`: 并行处理进程数
-- `--test_samples`: 测试集样本数量
-- `--random_seed`: 随机种子
+### 🔥 训练
 
-## 🔥 训练
-
-### 💻 训练硬件
+#### 💻 训练硬件
 
 本项目在 **NVIDIA RTX 5090 (32GB)** 上训练。
 
-### ⚡ 训练命令
+#### ⚡ 训练命令
 
 **准备 Qwen3 模型**：
 
@@ -147,33 +179,9 @@ python3 scripts/mel_train.py \
   model.estimator.num_layers=8
 ```
 
-### 🚄 多卡训练
+**注意**：Lightning 会自动检测并使用所有可用 GPU，使用 DDP 策略。根据您的硬件配置，可能需要调整 `batch_size`、`batch_mul`、`max_tokens` 等参数。
 
-```bash
-# 使用 2 张 GPU
-CUDA_VISIBLE_DEVICES=0,1 python3 scripts/mel_train.py \
-  dataset.train_dataset_path=<your_train_data_path> \
-  dataset.valid_dataset_path=<your_valid_data_path> \
-  model.llm_model_path=Qwen3-0.6B \
-  model.rfmel.batch_mul=2 \
-  training.batch_size=8 \
-  dataset.max_tokens=1024 \
-  training.num_workers=16 \
-  training.learning_rate=0.0001 \
-  training.log_dir=<your_log_dir> \
-  training.diffusion_extra_steps=4 \
-  training.check_val_every_n_epoch=1 \
-  model.use_skip_connection=true \
-  model.estimator.hidden_dim=512 \
-  model.estimator.intermediate_dim=1536 \
-  model.estimator.num_layers=8
-```
-
-**注意**：
-- Lightning 会自动检测并使用所有可用 GPU，使用 DDP 策略
-- 根据您的硬件配置，可能需要调整 `batch_size`、`batch_mul`、`max_tokens` 等参数
-
-## 📤 导出模型
+### 📤 导出模型
 
 训练完成后，导出模型用于推理：
 
@@ -194,49 +202,9 @@ python scripts/mel_export_checkpoint.py \
 - `model.ckpt`: 模型权重
 - `model.yaml`: 推理配置
 
-## 🎤 推理
+导出后即可使用上面"使用预训练模型推理"部分的命令进行推理。
 
-```bash
-python3 scripts/mel_inference.py \
-  --model_path <your_model_dir>/ \
-  --text example_data/transcript/fanren_short.txt \
-  --ref_audio fanren08 \
-  --output_path output/generated \
-  --dtype bfloat16
-```
-
-**输出文件**：
-- `output/generated.wav`: 生成的音频
-- `output/generated.png`: Mel 频谱图
-- `output/generated.npy`: Mel 频谱数组
-
-### 🎧 参考音频说明
-
-`--ref_audio` 参数指定参考音频的名称（不含扩展名），脚本会从 `example_data/voice_prompts/` 目录读取对应的 `.wav` 和 `.txt` 文件：
-
-```
-example_data/voice_prompts/
-├── fanren08.wav          # 参考音频
-├── fanren08.txt          # 参考音频对应的文本
-├── fanren09.wav
-└── fanren09.txt
-```
-
-可以添加自己的参考音频，只需将音频文件和对应的文本文件放入该目录即可。
-
-### ⚙️ 参数说明
-
-- `--model_path`: 导出的模型目录或 .ckpt 文件路径
-- `--text`: 要合成的文本，或文本文件路径
-- `--ref_audio`: 参考音频名称（不含扩展名），可用逗号分隔多个
-- `--output_path`: 输出文件路径前缀（会生成 .wav, .png, .npy 三个文件）
-- `--dtype`: 数据类型（float32/float16/bfloat16，默认 bfloat16）
-- `--device`: 设备（cuda/cpu/mps，默认 cuda）
-- `--temperature`: 采样温度（默认 0.7）
-- `--top_p`: Top-p 采样（默认 0.7）
-- `--max_new_tokens`: 最大生成 token 数（默认 1024）
-- `--chunk_method`: 文本分块方法（speaker/word/none，默认 speaker）
-- `--seed`: 随机种子（默认 42）
+---
 
 ## 📁 项目结构
 
