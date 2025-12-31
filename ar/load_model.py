@@ -86,16 +86,47 @@ def load_armel_for_inference(
         raise ValueError("Invalid weights file format, please use mel_export_checkpoint.py")
     model_state_dict = checkpoint['model_state_dict']
 
-    # Tokenizer and LLM
-    # For inference, we only need the tokenizer and model config from llm_model_path
-    # The actual LLM weights will be loaded from the checkpoint
-    tokenizer = get_qwen_tokenizer(cfg.model.llm_model_path)
+    # Tokenizer and LLM - Load from self-contained checkpoint
+    logger.info("Loading from self-contained checkpoint (embedded LLM config and tokenizer)")
+
+    # Determine tokenizer path
+    if model_path.is_dir():
+        tokenizer_path = model_path / "tokenizer"
+    else:
+        tokenizer_path = model_path.parent / "tokenizer"
+
+    if not tokenizer_path.exists():
+        raise FileNotFoundError(
+            f"Tokenizer directory not found: {tokenizer_path}\n"
+            f"Please re-export the checkpoint with the updated mel_export_checkpoint.py script."
+        )
+
+    tokenizer = get_qwen_tokenizer(str(tokenizer_path))
+
+    # Create LLM from embedded config
+    from transformers import Qwen3Config
+    from ar.qwen import Qwen3LM
+
+    # Convert OmegaConf to dict and filter out problematic fields
+    llm_config_dict = OmegaConf.to_container(cfg.model.llm_config, resolve=True)
+    # Remove fields that cause issues during initialization
+    problematic_fields = ['label2id', 'id2label']
+    for field in problematic_fields:
+        if field in llm_config_dict and llm_config_dict[field] is None:
+            del llm_config_dict[field]
+
+    # Save config to tokenizer dir for Qwen3LM to load
+    llm_config = Qwen3Config(**llm_config_dict)
+    llm_config.save_pretrained(tokenizer_path)
+
     llm = Qwen3LM(
-        pretrain_path=cfg.model.llm_model_path,
-        load_weights=False,  # Don't load pretrained weights, will load from checkpoint
-        attn_implementation=cfg.model.attn_implementation
+        pretrain_path=str(tokenizer_path),
+        load_weights=False,
+        attn_implementation=llm_config_dict.get('attn_implementation', 'sdpa')
     )
     llm.resize_token_embeddings(len(tokenizer))
+
+    logger.info(f"Initialized LLM from embedded config")
 
     # Mel processor
     mel_cfg = cfg.model.mel

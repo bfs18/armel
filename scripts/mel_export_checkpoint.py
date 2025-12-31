@@ -2,9 +2,10 @@
 """
 Export ARMel (mel-spectrogram) model weights and config from a Lightning checkpoint.
 
-Outputs a portable directory (or pair of files) that mel_inference.py can load:
+Outputs a self-contained directory with:
   - model.ckpt  (weights)
-  - model.yaml  (inference config)
+  - model.yaml  (inference config with embedded LLM config)
+  - tokenizer/  (tokenizer files)
 
 Usage:
   python scripts/mel_export_checkpoint.py --ckpt_path logs_mel/checkpoints/last.ckpt --output_path exported_mel/
@@ -12,6 +13,8 @@ Usage:
 """
 import argparse
 import sys
+import shutil
+import json
 from pathlib import Path
 
 # Add project root to Python path
@@ -21,6 +24,7 @@ sys.path.insert(0, str(project_root))
 import torch
 from dataclasses import fields as dataclass_fields
 from omegaconf import OmegaConf
+from transformers import Qwen3ForCausalLM
 
 from utils.logger import get_logger
 from utils.checkpoints import find_latest_checkpoint
@@ -59,16 +63,19 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
     logger.info(f"Exporting ARMel model from checkpoint: {ckpt_path}")
     logger.info("=" * 80)
 
-    # Determine output file locations
+    # Output must be a directory for self-contained export
     if output_path.suffix.lower() == ".ckpt":
+        logger.warning("Output path should be a directory for self-contained export. Using parent directory.")
+        output_dir = output_path.parent
         model_path = output_path
         config_path = output_path.with_suffix(".yaml")
-        model_path.parent.mkdir(parents=True, exist_ok=True)
     else:
         output_dir = output_path
-        output_dir.mkdir(parents=True, exist_ok=True)
         model_path = output_dir / "model.ckpt"
         config_path = output_dir / "model.yaml"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tokenizer_dir = output_dir / "tokenizer"
 
     # Load checkpoint
     logger.info("Loading checkpoint...")
@@ -106,6 +113,45 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
             logger.info(f"Adding missing rfmel config: {key} = {default_value}")
     # Ensure patch_size in rfmel matches top-level model.patch_size
     model_config['rfmel']['patch_size'] = model_config.get('patch_size', model_config['rfmel']['patch_size'])
+
+    # Export LLM config (instead of llm_model_path)
+    logger.info(f"Loading LLM config from: {cfg.model.llm_model_path}")
+    llm_config = Qwen3ForCausalLM.config_class.from_pretrained(cfg.model.llm_model_path)
+    llm_config_dict = llm_config.to_dict()
+    # Override attention implementation from training config
+    llm_config_dict['attn_implementation'] = model_config.get('attn_implementation', 'sdpa')
+    # Remove problematic fields that are None (causes issues during deserialization)
+    problematic_fields = ['label2id', 'id2label']
+    for field in problematic_fields:
+        if field in llm_config_dict and llm_config_dict[field] is None:
+            del llm_config_dict[field]
+
+    model_config['llm_config'] = llm_config_dict
+    # Remove llm_model_path as it's no longer needed
+    if 'llm_model_path' in model_config:
+        del model_config['llm_model_path']
+
+    # Copy tokenizer files
+    logger.info(f"Copying tokenizer files from: {cfg.model.llm_model_path}")
+    tokenizer_source = Path(cfg.model.llm_model_path)
+    if tokenizer_source.exists():
+        tokenizer_dir.mkdir(parents=True, exist_ok=True)
+        # Copy essential tokenizer files
+        tokenizer_files = [
+            'tokenizer.json',
+            'tokenizer_config.json',
+            'vocab.json',
+            'merges.txt',
+            'special_tokens_map.json',
+        ]
+        for filename in tokenizer_files:
+            src_file = tokenizer_source / filename
+            if src_file.exists():
+                shutil.copy2(src_file, tokenizer_dir / filename)
+                logger.info(f"  Copied: {filename}")
+        logger.info(f"Tokenizer files saved to: {tokenizer_dir}")
+    else:
+        logger.warning(f"Tokenizer source path not found: {tokenizer_source}")
 
     # Compose final inference config
     inference_config = {
@@ -147,11 +193,14 @@ def export_mel_checkpoint(ckpt_path: str, output_path: str):
     logger.info(f"Model weights saved to: {model_path}")
 
     logger.info("=" * 80)
-    logger.info("Export complete!")
+    logger.info("Export complete! (Self-contained checkpoint)")
     logger.info(f"  - Model weights: {model_path}")
     logger.info(f"  - Config file: {config_path}")
+    logger.info(f"  - Tokenizer: {tokenizer_dir}")
     logger.info(f"  - Total parameters: {total_params:,}")
     logger.info(f"  - Training info: epoch={epoch}, step={global_step}")
+    logger.info("")
+    logger.info("This checkpoint is self-contained and does NOT require llm_model_path!")
     logger.info("")
     logger.info("RFMel Configuration:")
     for key, value in model_config['rfmel'].items():
